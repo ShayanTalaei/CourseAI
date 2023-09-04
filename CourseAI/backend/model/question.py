@@ -1,3 +1,10 @@
+
+import string
+import random
+
+def generate_random_string(length):
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
+
 class Question:
     
     all_questions = []
@@ -19,6 +26,19 @@ class Question:
     def check_answer(self, answer):
         return self.correct_option_id == answer
 
-    
+    def generate_random_question():
+        text = generate_random_string(length=20)
+        options = [generate_random_string(length=5) for i in range(4)]
+        correct_option_id = random.randint(0, 4)
+        hardness = random.randint(0, 5)
+        importance = random.randint(0, 5)
+
+        chapter = 1
+        section = random.randint(0, 2)
+        subsection = random.randint(0, 1)
+
+        q = Question(
+            text, options, correct_option_id, hardness, importance, chapter, section, subsection
+        )
 
 
