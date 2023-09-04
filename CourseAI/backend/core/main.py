@@ -242,7 +242,7 @@ def handle_conversation_page(message):
             exam = generate_exam()
             qo_list = exam.get_question_options_list()
             start_time = datetime.now()
-            start_time = start_time.strftime("%I%p")
+            start_time = start_time.strftime("%B %d, %Y")
             exam_time_minute = 1*exam.question_count()
             response = {
                 "title": "آزمون",
