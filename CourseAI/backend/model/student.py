@@ -1,4 +1,4 @@
-from exam import *
+from .exam import *
 
 class Student:
 

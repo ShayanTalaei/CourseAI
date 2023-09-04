@@ -1,8 +1,8 @@
 from datetime import datetime
 import random
 
-from student import *
-from question import *
+from .student import *
+from .question import *
 
 class Exam:
 
@@ -12,6 +12,9 @@ class Exam:
     def generate_exam(number_of_questions = 10):
         questions = random.sample(Question.all_questions, number_of_questions)
         return Exam(questions)
+
+    def question_count(self):
+        return len(self.questions)
 
     def get_question_options_list(self, with_answer=False):
         qo_list = []

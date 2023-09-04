@@ -20,5 +20,5 @@ import api.views as API
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', API.Chat.as_view())
+    path('api/', API.ViewController.as_view())
 ]

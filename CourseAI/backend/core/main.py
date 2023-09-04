@@ -1,17 +1,27 @@
 import random
+from datetime import datetime
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import re
-from core import summ as SUM
-from core import q_ans as QAns
-from core import ask_q as AskQ
+# from core import summ as SUM
+# from core import q_ans as QAns
+# from core import ask_q as AskQ
+
+from .init_system import *
+from model.student import * 
 
 BOT_NAME = "Course AI"
 
 ## Models
 model = SentenceTransformer('HooshvareLab/bert-base-parsbert-uncased')
+
+## Globals
+state = "CONVERSATION_GREETING"
 asked_question = ''
+previous_questions_embeddings = []
+student = initialize_system()
+
 
 greeting = [
     "سلام! من اینجام تا توی درسات بهت کمک کنم.",
@@ -71,6 +81,23 @@ question_answering = [
     "جانم، سوالت رو بپرس.",
     "Try me, I won't disappoint you ;)",
     "سوالت رو برام بنویس."
+]
+
+finish_exam = [
+    "خسته نباشی! دوست داری الان چیکار کنیم؟"
+]
+
+analysis_planning_offer = [
+    "دیگه چیکار کنیم؟"
+]
+
+wait_for_studying = [
+    "الان برو مطالعه کن. پایان زمان مطالعه دوباره میبینمت!"
+]
+
+goodbye = [
+    "خداحافظ! امیدوارم تونسته باشم کمکت کنم.",
+    "به امید دیدار، بعدا باز هم با درس میخونیم."
 ]
 
 not_available_feature = [
@@ -138,12 +165,15 @@ def feature_selection(feature):
     summerization = ["برام خلاصه کن"]
     question_answering = ["به سوالام جواب بده"]
     asking_question = ["ازم سوال بپرس"]
+    taking_exam = ["میخوام آزمون بدم."]
     if feature in summerization:
         return "SUMMERIZATION"
     elif feature in asking_question:
         return "ASKING_QUESTION"
     elif feature in question_answering:
         return "QUESTION_ANSWERING"
+    elif feature in taking_exam:
+        return "EXAM"
     else:
         return "NOT_AVAILABLE"
 
@@ -154,84 +184,190 @@ def back_detection(message):
         return "BACK"
     return "NO"
 
-def information_retrieval_module(state, message, previous_questions_embeddings):
-    global asked_question
+def get_next_page():
+    global state
+    # get page name from state, first word before _
+    page = state.split("_")[0].lower()
+    return page
+
+def information_retrieval_module(message):
+    global state, asked_question, previous_questions_embeddings
+
+    if state.startswith("CONVERSATION"):
+        res, buttons = handle_conversation_page(message)
+    elif state.startswith("EXAM"):
+        res, buttons = handle_exam_page(message)
+    elif state.startswith("ANALYSIS"):
+        res, buttons = handle_analysis_page(message)
+    elif state.startswith("PLANNING"):
+        res, buttons = handle_planning_page(message)
+    elif state.startswith("REVIEW"):
+        res, buttons = handle_review_page(message)
+    page = get_next_page(state)
+    return page, res, buttons
+ 
+ 
+def handle_conversation_page(message):
+    global state, previous_questions_embeddings
+
     ## GREETING 
-    if state == "GREETING": 
+    if state == "CONVERSATION_GREETING": 
         previous_questions_embeddings, future_question = random_generator(greeting, previous_questions_embeddings)
-        return future_question, "COURSE", ["سلام", "درود"], previous_questions_embeddings
+        state = "CONVERSATION_COURSE"
+        return future_question, ["سلام", "درود"]
 
     ## COURSE
-    elif state == "COURSE": 
+    elif state == "CONVERSATION_COURSE": 
         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, course)
-        return future_question, "GRADE", ["ریاضی", "زیست شناسی"], previous_questions_embeddings
+        state = "CONVERSATION_GRADE"
+        return future_question, ["ریاضی", "زیست شناسی"]
     
     ## GRADE
-    elif state == "GRADE": 
+    elif state == "CONVERSATION_GRADE": 
         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, grade)
-        return future_question, "FEATURE", ["دهم", "یازدهم", "دوازدهم"], previous_questions_embeddings
+        state = "CONVERSATION_FEATURE"
+        return future_question, ["دهم", "یازدهم", "دوازدهم"]
 
-    ## FEATURE
-    elif state == "FEATURE": 
+    # FEATURE
+    elif state == "CONVERSATION_FEATURE": 
         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, feature)
-        return future_question, "FEATURE_SELECTION", ["به سوالام جواب بده", "برام خلاصه کن", "ازم سوال بپرس"], previous_questions_embeddings
+        state = "CONVERSATION_FEATURE_SELECTION"
+        return future_question, ["میخوام آزمون بدم."] #"به سوالام جواب بده", "برام خلاصه کن", "ازم سوال بپرس"
 
     ## FEATURE SELECTION
-    elif state == "FEATURE_SELECTION": 
+    elif state == "CONVERSATION_FEATURE_SELECTION": 
         f = feature_selection(message)
-        print("back back", f, message)
-        if f == "SUMMERIZATION":
-            previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, summerization)
-            return future_question, "SUMMERIZATION", ["یه متن از کتاب", "برگردیم عقب"], previous_questions_embeddings
-        elif f == "ASKING_QUESTION":
-            previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, asking_question)
-            return future_question, "ASKING_QUESTION", ["فصل اول", "برگردیم عقب"], previous_questions_embeddings
-        elif f == "QUESTION_ANSWERING":
-            previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, question_answering)
-            return future_question, "QUESTION_ANSWERING", ["اطلاعات وراثتی کجا ذخیره میشه", "برگردیم عقب"], previous_questions_embeddings
-        else:
-            previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, feature)
-            return future_question, "END", ["دوباره امتحان کنیم"], previous_questions_embeddings
 
-     ## ASKING QUESTION
-    elif state == "ASKING_QUESTION": 
-        if back_detection(message) == "BACK":
-            previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, feature)
-            return future_question, "FEATURE_SELECTION",  ["به سوالام جواب بده", "برام خلاصه کن", "ازم سوال بپرس"], previous_questions_embeddings
-        print(asked_question)
-        question = AskQ.ask_question(1)
-        asked_question = question
-        print(asked_question)
-        return question, "ASKING_QUESTION_ANSWER", [], previous_questions_embeddings
+        if f == "EXAM":
+            exam = generate_exam()
+            qo_list = exam.get_question_options_list()
+            start_time = datetime.now()
+            start_time = start_time.strftime("%I%p")
+            exam_time_minute = 1*exam.question_count()
+            response = {
+                "title": "آزمون",
+                "start_time": start_time,
+                "duration": exam_time_minute,
+                "qo_list": qo_list
+            }
 
+            state = "EXAM_TAKING_EXAM"
+            return response, []
 
-    ## SUMMERIZATION
-    elif state == "SUMMERIZATION": 
-        if back_detection(message) == "BACK":
-            previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, feature)
-            return future_question, "FEATURE_SELECTION",  ["به سوالام جواب بده", "برام خلاصه کن", "ازم سوال بپرس"], previous_questions_embeddings
-        text_summ = SUM.summerize_text(message)
-        return text_summ[0]["generated_text"].replace("<n>", ""), "SUMMERIZATION", ["یه متن از کتاب", "برگردیم عقب"], previous_questions_embeddings
+    elif state == "CONVERSATION_FINISH_EXAM" or state == "CONVERSATION_ANALYSIS_PLANNING_OFFER":
+        if message == "آزمون رو تحلیل کنیم.":
+            ## TODO
+            response = {}
 
-    ## ASKING QUESTION
-    elif state == "ASKING_QUESTION_ANSWER": 
-        res, real_answer = AskQ.check_answer(asked_question, message)
-        return res + " به عبارتی " + real_answer, "ASKING_QUESTION", ["فصل اول", "برگردیم عقب"], previous_questions_embeddings
+            state = "ANALYSIS_CHARTS"
+            return future_question, [] 
+        elif message == "پاسخ‌برگ رو ببینیم.":
+            ## TODO
+            response = {}
 
-    
-    ## QUESTION ANSWERING
-    elif state == "QUESTION_ANSWERING": 
-        if back_detection(message) == "BACK":
-            print("back back")
-            previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, feature)
-            return future_question, "FEATURE_SELECTION",  ["به سوالام جواب بده", "برام خلاصه کن", "ازم سوال بپرس"], previous_questions_embeddings
-        answer = QAns.answer_question(message)
-        return answer, "QUESTION_ANSWERING", ["اطلاعات وراثتی کجا ذخیره میشه", "برگردیم عقب"], previous_questions_embeddings
+            state = "ANALYSIS_ANSWER_SHEET"
+        elif message == "بهم مشاوره بده.":
+            ## TODO
+            response = {}
+
+            state = "PLANNING_SHOW_PLAN"
+
+    elif state == "CONVERSATION_WAIT_FOR_STUDYING":
+        ## TODO
+        response = {}
+
+        state = "REVIEW_ANSWERING_QUESTIONS"
         
-    # THANK USER
-    elif state == "END":
-        return "امیدوارم تونسته باشم کمکت کنم.", "END2", ["خوب بود", "جالب نبود"], previous_questions_embeddings
+
+    # elif state == "CONVERSATION_FEATURE_SELECTION": 
+    #     f = feature_selection(message)
+    #     print("back back", f, message)
+    #     if f == "SUMMERIZATION":
+    #         previous_questions_embeddings, future_question = embedding_generato
+    # r(model, previous_questions_embeddings, summerization)
+    #         return future_question, "SUMMERIZATION", ["یه متن از کتاب", "برگردیم عقب"], previous_questions_embeddings
+    #     elif f == "ASKING_QUESTION":
+    #         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, asking_question)
+    #         return future_question, "ASKING_QUESTION", ["فصل اول", "برگردیم عقب"], previous_questions_embeddings
+    #     elif f == "QUESTION_ANSWERING":
+    #         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, question_answering)
+    #         return future_question, "QUESTION_ANSWERING", ["اطلاعات وراثتی کجا ذخیره میشه", "برگردیم عقب"], previous_questions_embeddings
+    #     else:
+    #         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, feature)
+    #         return future_question, "END", ["دوباره امتحان کنیم"], previous_questions_embeddings
+
+    #  ## ASKING QUESTION
+    # elif state == "ASKING_QUESTION": 
+    #     if back_detection(message) == "BACK":
+    #         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, feature)
+    #         return future_question, "FEATURE_SELECTION",  ["به سوالام جواب بده", "برام خلاصه کن", "ازم سوال بپرس"], previous_questions_embeddings
+    #     print(asked_question)
+    #     question = AskQ.ask_question(1)
+    #     asked_question = question
+    #     print(asked_question)
+    #     return question, "ASKING_QUESTION_ANSWER", [], previous_questions_embeddings
+
+
+    # ## SUMMERIZATION
+    # elif state == "SUMMERIZATION": 
+    #     if back_detection(message) == "BACK":
+    #         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, feature)
+    #         return future_question, "FEATURE_SELECTION",  ["به سوالام جواب بده", "برام خلاصه کن", "ازم سوال بپرس"], previous_questions_embeddings
+    #     text_summ = SUM.summerize_text(message)
+    #     return text_summ[0]["generated_text"].replace("<n>", ""), "SUMMERIZATION", ["یه متن از کتاب", "برگردیم عقب"], previous_questions_embeddings
+
+    # ## ASKING QUESTION
+    # elif state == "ASKING_QUESTION_ANSWER": 
+    #     res, real_answer = AskQ.check_answer(asked_question, message)
+    #     return res + " به عبارتی " + real_answer, "ASKING_QUESTION", ["فصل اول", "برگردیم عقب"], previous_questions_embeddings
+
     
-    return
- 
- 
+    # ## QUESTION ANSWERING
+    # elif state == "QUESTION_ANSWERING": 
+    #     if back_detection(message) == "BACK":
+    #         print("back back")
+    #         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, feature)
+    #         return future_question, "FEATURE_SELECTION",  ["به سوالام جواب بده", "برام خلاصه کن", "ازم سوال بپرس"], previous_questions_embeddings
+    #     answer = QAns.answer_question(message)
+    #     return answer, "QUESTION_ANSWERING", ["اطلاعات وراثتی کجا ذخیره میشه", "برگردیم عقب"], previous_questions_embeddings
+        
+    # # THANK USER
+    # elif state == "END":
+    #     return "امیدوارم تونسته باشم کمکت کنم.", "END2", ["خوب بود", "جالب نبود"], previous_questions_embeddings
+    
+
+def handle_exam_page(message):
+    global state
+
+    if state == "EXAM_TAKING_EXAM": 
+        previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, finish_exam)
+        state = "CONVERSATION_FINISH_EXAM"
+        
+        return future_question, ["آزمون رو تحلیل کنیم.","پاسخ‌برگ رو ببینیم.","برام برنامه‌ریزی کن."]
+
+def handle_analysis_page(message):
+    if state == "ANALYSIS_CHARTS" or state == "ANALYSIS_ANSWER_SHEET":
+        previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, analysis_planning_offer)
+        state = "CONVERSATION_ANALYSIS_PLANNING_OFFER"
+            
+        return future_question, ["آزمون رو تحلیل کنیم.","پاسخ‌برگ رو ببینیم.","برام برنامه‌ریزی کن."]
+
+
+def handle_planning_page(message):
+    if state == "PLANNING_SHOW_PLAN":
+        previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, wait_for_studying)
+        state = "CONVERSATION_WAIT_FOR_STUDYING"
+            
+        return future_question, ["من برگشتم، بریم سراغ مرور."]
+
+
+def handle_review_page(message):
+    if state == "REVIEW_ANSWERING_QUESTIONS":
+        if message == "خروج":
+            previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, wait_for_studying)
+            state = "CONVERSATION_GOODBYE"
+                
+            return future_question, ["شروع دوباره!"]
+        elif message == "":
+            ## TODO
+            pass
