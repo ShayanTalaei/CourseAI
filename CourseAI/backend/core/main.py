@@ -17,7 +17,7 @@ BOT_NAME = "Course AI"
 model = SentenceTransformer('HooshvareLab/bert-base-parsbert-uncased')
 
 ## Globals
-state = "CONVERSATION_GREETING"
+state = "CONVERSATION_FEATURE"
 asked_question = ''
 previous_questions_embeddings = []
 student = initialize_system()
@@ -230,7 +230,7 @@ def handle_conversation_page(message):
 
     # FEATURE
     elif state == "CONVERSATION_FEATURE": 
-        previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, feature)
+        previous_questions_embeddings, future_question = random_generator(feature, previous_questions_embeddings)
         state = "CONVERSATION_FEATURE_SELECTION"
         return future_question, ["میخوام آزمون بدم."] #"به سوالام جواب بده", "برام خلاصه کن", "ازم سوال بپرس"
 

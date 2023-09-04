@@ -41,4 +41,5 @@ class Question:
             text, options, correct_option_id, hardness, importance, chapter, section, subsection
         )
 
+        return q
 
