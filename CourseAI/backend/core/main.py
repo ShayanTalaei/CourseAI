@@ -21,7 +21,7 @@ state = "CONVERSATION_GREETING"
 asked_question = ''
 previous_questions_embeddings = []
 student = initialize_system()
-
+in_action_exam = None
 
 greeting = [
     "سلام! من اینجام تا توی درسات بهت کمک کنم.",
@@ -208,7 +208,7 @@ def information_retrieval_module(message):
  
  
 def handle_conversation_page(message):
-    global state, previous_questions_embeddings
+    global state, previous_questions_embeddings, in_action_exam, student
 
     ## GREETING 
     if state == "CONVERSATION_GREETING": 
@@ -240,6 +240,7 @@ def handle_conversation_page(message):
 
         if f == "EXAM":
             exam = generate_exam()
+            in_action_exam = exam
             qo_list = exam.get_question_options_list()
             start_time = datetime.now()
             start_time = start_time.strftime("%B %d, %Y")
@@ -256,14 +257,22 @@ def handle_conversation_page(message):
 
     elif state == "CONVERSATION_FINISH_EXAM" or state == "CONVERSATION_ANALYSIS_PLANNING_OFFER":
         if message == "آزمون رو تحلیل کنیم.":
-            ## TODO
-            response = {}
+            last_taken_exam = student.taken_exams[-1]
+            overall_stats, sections, percentages, strong_sections, weak_sections = last_taken_exam.analize_exam()
+            exam_sammary = "آزمون خوبی بود. نقاط قوت و ضعفت رو در ادامه بهت میگم."
+            response = {overall_stats=overall_stats,
+                        sections=sections,
+                        percentages=percentages,
+                        strong_sections=strong_sections,
+                        weak_sections=weak_sections,
+                        exam_sammary=exam_sammary}
 
             state = "ANALYSIS_CHARTS"
             return future_question, [] 
         elif message == "پاسخ‌برگ رو ببینیم.":
-            ## TODO
-            response = {}
+            last_taken_exam = student.taken_exams[-1]
+            qo_list = last_taken_exam.get_question_options_list()
+            response = {"qo_list": qo_list}
 
             state = "ANALYSIS_ANSWER_SHEET"
         elif message == "بهم مشاوره بده.":
@@ -337,12 +346,15 @@ def handle_conversation_page(message):
     
 
 def handle_exam_page(message):
-    global state
+    global state, student, in_action_exam
 
     if state == "EXAM_TAKING_EXAM": 
         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, finish_exam)
         state = "CONVERSATION_FINISH_EXAM"
         
+        taken_exam = TakenExam(student=student, exam=in_action_exam, 
+                answers=[x["selectedAnswer"] for x in message], passed_time = None)
+        student.taken_exams.append(take_exam)
         return future_question, ["آزمون رو تحلیل کنیم.","پاسخ‌برگ رو ببینیم.","برام برنامه‌ریزی کن."]
 
 def handle_analysis_page(message):

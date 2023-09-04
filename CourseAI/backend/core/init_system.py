@@ -914,25 +914,25 @@ sports_questions.append(question60)
 
 for q in animal_questions:
     q.chapter = 1
-    q.section = 1
+    q.section = "حیوانات"
 
 for q in fruit_questions:
     q.chapter = 1
-    q.section = 2
+    q.section = "میوه‌ها"
 
 for q in music_questions:
     q.chapter = 1
-    q.section = 3
+    q.section = "موسیقی"
 
 for q in countries_questions:
     q.chapter = 1
-    q.section = 4
+    q.section = "کشورها"
 
 for q in clothing_questions:
     q.chapter = 1
-    q.section = 5
+    q.section = "پوشاک"
 
 for q in sports_questions:
     q.chapter = 1
-    q.section = 5
+    q.section = "ورزشی"
 
