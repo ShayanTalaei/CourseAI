@@ -20,3 +20,9 @@ class Student:
                     self.section_to_stats[section][key] += key
             else:
                 self.section_to_stats[section] = stat
+
+    def get_score_in_section(self, section):
+        stats = self.section_to_stats[section]
+        corrects = stats["correct_answer"]
+        sum_stats = sum([val for key, val in stats.items()])
+        return corrects / sum_stats

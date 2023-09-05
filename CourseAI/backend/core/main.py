@@ -213,7 +213,7 @@ def information_retrieval_module(message):
  
  
 def handle_conversation_page(message):
-    global state, previous_questions_embeddings, in_action_exam, student, studying_section
+    global state, previous_questions_embeddings, in_action_exam, student, studying_section, last_question
 
     ## GREETING 
     if state == "CONVERSATION_GREETING": 
@@ -274,14 +274,16 @@ def handle_conversation_page(message):
                         exam_sammary:exam_sammary}
 
             state = "ANALYSIS_CHARTS"
-            return future_question, [] 
+            return response, [] 
         elif message == "پاسخ‌برگ رو ببینیم.":
             last_taken_exam = student.taken_exams[-1]
             qo_list = last_taken_exam.get_question_options_list()
             response = {"qo_list": qo_list}
 
             state = "ANALYSIS_ANSWER_SHEET"
-        elif message == "بهم مشاوره بده.":
+            return response, []
+
+        elif message == "برام برنامه‌ریزی کن.":
             last_taken_exam = student.taken_exams[-1]
             overall_stats, sections, percentages, strong_sections, weak_sections, section_to_stats = last_taken_exam.analize_exam()
             not_solved_percentages = [1-x for p in percentages]
@@ -295,13 +297,19 @@ def handle_conversation_page(message):
             }
 
             state = "PLANNING_SHOW_PLAN"
-
+            return response, []
     elif state == "CONVERSATION_WAIT_FOR_STUDYING":
-        ## TODO
-        response = {}
+        last_question = Question.choose_random_question(studying_section)
+        
+        response = {
+            text:last_question.text,
+            section:studying_section,
+            score:student.section_to_stats[studying_section],
+            last_question_answer:None
+        }
 
         state = "REVIEW_ANSWERING_QUESTIONS"
-        
+        return response, last_question.options
 
     # elif state == "CONVERSATION_FEATURE_SELECTION": 
     #     f = feature_selection(message)
@@ -361,7 +369,7 @@ def handle_conversation_page(message):
     
 
 def handle_exam_page(message):
-    global state, student, in_action_exam
+    global state, previous_questions_embeddings, in_action_exam, student, studying_section, last_question
 
     if state == "EXAM_TAKING_EXAM": 
         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, finish_exam)
@@ -374,14 +382,18 @@ def handle_exam_page(message):
         return future_question, ["آزمون رو تحلیل کنیم.","پاسخ‌برگ رو ببینیم.","برام برنامه‌ریزی کن."]
 
 def handle_analysis_page(message):
+    global state, previous_questions_embeddings, in_action_exam, student, studying_section, last_question
+
     if state == "ANALYSIS_CHARTS" or state == "ANALYSIS_ANSWER_SHEET":
         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, analysis_planning_offer)
         state = "CONVERSATION_ANALYSIS_PLANNING_OFFER"
-            
+        
         return future_question, ["آزمون رو تحلیل کنیم.","پاسخ‌برگ رو ببینیم.","برام برنامه‌ریزی کن."]
 
 
 def handle_planning_page(message):
+    global state, previous_questions_embeddings, in_action_exam, student, studying_section, last_question
+
     if state == "PLANNING_SHOW_PLAN":
         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, wait_for_studying)
         state = "CONVERSATION_WAIT_FOR_STUDYING"
@@ -390,12 +402,26 @@ def handle_planning_page(message):
 
 
 def handle_review_page(message):
+    global state, previous_questions_embeddings, in_action_exam, student, studying_section, last_question
+
     if state == "REVIEW_ANSWERING_QUESTIONS":
         if message == "خروج":
             previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, wait_for_studying)
             state = "CONVERSATION_GOODBYE"
                 
             return future_question, ["شروع دوباره!"]
-        elif message == "":
-            ## TODO
-            pass
+        else:
+            if last_question.check_answer():
+                stat = {"correct_answer": 1}
+            else:
+                stat = {"wrong_answer": 1}
+            correct_answer = last_question.options[last_question.correct_option_id]
+            student.update_stats(stat)
+            last_question = Question.choose_random_question(section)
+            response = {
+                text:last_question.text,
+                section:studying_section,
+                score:student.section_to_stats[studying_section],
+                last_question_answer:correct_answer
+            }
+            return response, last_question.options

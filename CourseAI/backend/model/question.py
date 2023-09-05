@@ -24,7 +24,10 @@ class Question:
         self.tags = kwargs.get("tags", None)
 
     def check_answer(self, answer):
-        return self.correct_option_id == answer
+        if answer in [0, 1, 2, 3]:
+            return self.correct_option_id == answer
+        else:
+            return self.options[self.correct_option_id] == answer
 
     def generate_random_question():
         text = generate_random_string(length=20)
