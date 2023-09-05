@@ -43,3 +43,12 @@ class Question:
 
         return q
 
+    def choose_random_question(section):
+        section_questions = []
+        for question in all_questions:
+            if question.section == section:
+                section_questions.append(question)
+
+        q_count = len(section_questions)
+        index = random.randint(0, q_count)
+        return section_questions[index]

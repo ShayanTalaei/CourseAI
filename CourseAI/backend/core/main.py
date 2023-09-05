@@ -10,6 +10,9 @@ import re
 
 from .init_system import *
 from model.student import * 
+from model.question import *
+from model.exam import *
+from model.plan import *
 
 BOT_NAME = "Course AI"
 
@@ -22,6 +25,8 @@ asked_question = ''
 previous_questions_embeddings = []
 student = initialize_system()
 in_action_exam = None
+last_question = None
+studying_section = None
 
 greeting = [
     "سلام! من اینجام تا توی درسات بهت کمک کنم.",
@@ -203,12 +208,12 @@ def information_retrieval_module(message):
         res, buttons = handle_planning_page(message)
     elif state.startswith("REVIEW"):
         res, buttons = handle_review_page(message)
-    page = get_next_page(state)
+    page = get_next_page()
     return page, res, buttons
  
  
 def handle_conversation_page(message):
-    global state, previous_questions_embeddings, in_action_exam, student
+    global state, previous_questions_embeddings, in_action_exam, student, studying_section
 
     ## GREETING 
     if state == "CONVERSATION_GREETING": 
@@ -239,7 +244,7 @@ def handle_conversation_page(message):
         f = feature_selection(message)
 
         if f == "EXAM":
-            exam = generate_exam()
+            exam = Exam.generate_exam()
             in_action_exam = exam
             qo_list = exam.get_question_options_list()
             start_time = datetime.now()
@@ -258,14 +263,15 @@ def handle_conversation_page(message):
     elif state == "CONVERSATION_FINISH_EXAM" or state == "CONVERSATION_ANALYSIS_PLANNING_OFFER":
         if message == "آزمون رو تحلیل کنیم.":
             last_taken_exam = student.taken_exams[-1]
-            overall_stats, sections, percentages, strong_sections, weak_sections = last_taken_exam.analize_exam()
+            overall_stats, sections, percentages, strong_sections, weak_sections, section_to_stats = last_taken_exam.analize_exam()
+            student.update_stats(section_to_stats)
             exam_sammary = "آزمون خوبی بود. نقاط قوت و ضعفت رو در ادامه بهت میگم."
-            response = {overall_stats=overall_stats,
-                        sections=sections,
-                        percentages=percentages,
-                        strong_sections=strong_sections,
-                        weak_sections=weak_sections,
-                        exam_sammary=exam_sammary}
+            response = {overall_stats:overall_stats,
+                        sections:sections,
+                        percentages:percentages,
+                        strong_sections:strong_sections,
+                        weak_sections:weak_sections,
+                        exam_sammary:exam_sammary}
 
             state = "ANALYSIS_CHARTS"
             return future_question, [] 
@@ -276,8 +282,17 @@ def handle_conversation_page(message):
 
             state = "ANALYSIS_ANSWER_SHEET"
         elif message == "بهم مشاوره بده.":
-            ## TODO
-            response = {}
+            last_taken_exam = student.taken_exams[-1]
+            overall_stats, sections, percentages, strong_sections, weak_sections, section_to_stats = last_taken_exam.analize_exam()
+            not_solved_percentages = [1-x for p in percentages]
+            plan = Plan.generate_plan(13, 19, sections, not_solved_percentages)
+            student.plan = plan
+            studying_section = plan.time_periods[0].section
+            
+            summary_text = plan.summary_text()
+            response = {
+                summary_text:summary_text
+            }
 
             state = "PLANNING_SHOW_PLAN"
 
@@ -354,6 +369,7 @@ def handle_exam_page(message):
         
         taken_exam = TakenExam(student=student, exam=in_action_exam, 
                 answers=[x["selectedAnswer"] for x in message], passed_time = None)
+        
         student.taken_exams.append(take_exam)
         return future_question, ["آزمون رو تحلیل کنیم.","پاسخ‌برگ رو ببینیم.","برام برنامه‌ریزی کن."]
 

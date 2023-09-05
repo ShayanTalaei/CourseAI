@@ -101,6 +101,6 @@ class TakenExam:
             else:
                 weak_sections.append(section)
         
-        return overall_stats, sections, percentages, strong_sections, weak_sections
+        return overall_stats, sections, percentages, strong_sections, weak_sections, section_to_stats
         
             
