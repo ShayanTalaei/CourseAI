@@ -266,12 +266,12 @@ def handle_conversation_page(message):
             overall_stats, sections, percentages, strong_sections, weak_sections, section_to_stats = last_taken_exam.analize_exam()
             student.update_stats(section_to_stats)
             exam_sammary = "آزمون خوبی بود. نقاط قوت و ضعفت رو در ادامه بهت میگم."
-            response = {overall_stats:overall_stats,
-                        sections:sections,
-                        percentages:percentages,
-                        strong_sections:strong_sections,
-                        weak_sections:weak_sections,
-                        exam_sammary:exam_sammary}
+            response = {"overall_stats":overall_stats,
+                        "sections":sections,
+                        "percentages":percentages,
+                        "strong_sections":strong_sections,
+                        "weak_sections":weak_sections,
+                        "exam_sammary":exam_sammary}
 
             state = "ANALYSIS_CHARTS"
             return response, [] 
@@ -286,14 +286,14 @@ def handle_conversation_page(message):
         elif message == "برام برنامه‌ریزی کن.":
             last_taken_exam = student.taken_exams[-1]
             overall_stats, sections, percentages, strong_sections, weak_sections, section_to_stats = last_taken_exam.analize_exam()
-            not_solved_percentages = [1-x for p in percentages]
-            plan = Plan.generate_plan(13, 19, sections, not_solved_percentages)
+            not_solved_percentages = [1-p for p in percentages]
+            plan = Plan.generate_plan(sections, not_solved_percentages, 13, 19)
             student.plan = plan
             studying_section = plan.time_periods[0].section
             
             summary_text = plan.summary_text()
             response = {
-                summary_text:summary_text
+                "summary_text":summary_text
             }
 
             state = "PLANNING_SHOW_PLAN"
@@ -302,10 +302,10 @@ def handle_conversation_page(message):
         last_question = Question.choose_random_question(studying_section)
         
         response = {
-            text:last_question.text,
-            section:studying_section,
-            score:student.section_to_stats[studying_section],
-            last_question_answer:None
+            "text":last_question.text,
+            "section":studying_section,
+            "score":student.section_to_stats[studying_section],
+            "last_question_answer":None
         }
 
         state = "REVIEW_ANSWERING_QUESTIONS"
@@ -373,13 +373,19 @@ def handle_exam_page(message):
 
     if state == "EXAM_TAKING_EXAM": 
         previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, finish_exam)
-        state = "CONVERSATION_FINISH_EXAM"
+        state = "EXAM_TAKING_EXAM2"
         
         taken_exam = TakenExam(student=student, exam=in_action_exam, 
                 answers=[x["selectedAnswer"] for x in message], passed_time = None)
         
         student.taken_exams.append(take_exam)
         return future_question, ["آزمون رو تحلیل کنیم.","پاسخ‌برگ رو ببینیم.","برام برنامه‌ریزی کن."]
+    
+    if state == "EXAM_TAKING_EXAM2": 
+        previous_questions_embeddings, future_question = embedding_generator(model, previous_questions_embeddings, finish_exam)
+        state = "CONVERSATION_FINISH_EXAM"
+        return future_question, ["آزمون رو تحلیل کنیم.","پاسخ‌برگ رو ببینیم.","برام برنامه‌ریزی کن."]
+    
 
 def handle_analysis_page(message):
     global state, previous_questions_embeddings, in_action_exam, student, studying_section, last_question
@@ -419,9 +425,9 @@ def handle_review_page(message):
             student.update_stats(stat)
             last_question = Question.choose_random_question(section)
             response = {
-                text:last_question.text,
-                section:studying_section,
-                score:student.section_to_stats[studying_section],
-                last_question_answer:correct_answer
+                "text":last_question.text,
+                "section":studying_section,
+                "score":student.section_to_stats[studying_section],
+                "last_question_answer":correct_answer
             }
             return response, last_question.options

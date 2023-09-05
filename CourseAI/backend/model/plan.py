@@ -21,11 +21,11 @@ class Plan:
                 if weight > max_weight:
                     max_index = j
                     max_weight = weight
-            chosen_sections.append(section.pop(j))
+            chosen_sections.append(sections.pop(j))
             chosen_weights.append(weights.pop(j))
         return chosen_sections, chosen_weights
 
-    def generate_plan(start_time=13, end_time=19, sections, weights):
+    def generate_plan(sections, weights, start_time=13, end_time=19):
         sections, weights = Plan.choose_critical_sections(sections, weights)
         sum_weights = sum(weights)*1.15
         last_time = start_time
@@ -37,9 +37,9 @@ class Plan:
             study_time = int((weight / sum_weights) * total_time / 3)
             test_time = int((weight / sum_weights) * total_time *2 / 3)
             study_period = TimePeriod("Study", section, last_time, last_time + study_time)
-            test_period = TimePeriod("Test", section, last_time + study_time, last_time + study_time + test_period)
-            rest_period = TimePeriod("Rest", section, last_time + study_time + test_period,
-                                         last_time + study_time + test_period + unit_rest_time)
+            test_period = TimePeriod("Test", section, last_time + study_time, last_time + study_time + test_time)
+            rest_period = TimePeriod("Rest", section, last_time + study_time + test_time,
+                                         last_time + study_time + test_time + unit_rest_time)
             last_time += study_time + test_time + unit_rest_time
             time_periods += [study_period, test_period, rest_period]
         return Plan(time_periods)
@@ -56,5 +56,5 @@ class Plan:
 
         total_time = self.time_periods[-1].end_time - self.time_periods[0].start_time
         
-        summary = "تست بزنیم." + str(test_time) + "ساعت درس بخونی و " + str(study_time) + "ساعت کار کنیم. قراره مجموعا " + str(total_time) + "رو برای " + "، ".join(sections) + "الان میخوایم مباحث "
+        summary = "تست بزنیم." + str(total_test_time) + "ساعت درس بخونی و " + str(total_study_time) + "ساعت کار کنیم. قراره مجموعا " + str(total_time) + "رو برای " + "، ".join(sections) + "الان میخوایم مباحث "
         return summary

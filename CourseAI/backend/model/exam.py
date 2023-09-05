@@ -62,9 +62,9 @@ class TakenExam:
 
         section_to_questions = {}
         for q in qo_list:
-            if q.section not in section_to_questions:
-                section_to_questions[q.section] = []
-            section_to_questions[q.section].append(q)
+            if q["section"] not in section_to_questions:
+                section_to_questions[q["section"]] = []
+            section_to_questions[q["section"]].append(q)
 
         section_to_stats = {}
         for section, questions in section_to_questions.items():
